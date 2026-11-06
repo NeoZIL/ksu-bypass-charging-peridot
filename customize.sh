@@ -1,6 +1,7 @@
 SKIPUNZIP=0
 B=/sys/class/qcom-battery
 ui_print "- Bypass Charging Peridot (POCO F6)"
+ui_print "- Module by NeoZIL"
 ui_print "- Credits: khargosxh18 & Klozz (kernel_xiaomi_periot, commit 8c2ee43)"
 if [ -e $B/bypass_charging_enable ]; then
   ui_print "- Kernel has native bypass_charging_enable (will use it)"
