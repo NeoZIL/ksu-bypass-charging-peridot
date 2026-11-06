@@ -1,6 +1,6 @@
 # Bypass Charging Peridot (POCO F6)
 
-KernelSU / KernelSU-Next module. Tag a release (`git tag v1.1 && git push --tags`) and GitHub Actions builds the flashable zip.
+
 
 > Test manually first (plugged in, as root):
 > `echo 0 > /sys/class/qcom-battery/fastcharge_enable; sleep 1; echo 9 > /sys/class/qcom-battery/smart_chg; sleep 1; echo 3 > /sys/class/qcom-battery/smart_chg`
