@@ -1,0 +1,68 @@
+#!/system/bin/sh
+# Bypass sequence by khargosxh18 & Klozz (kernel_xiaomi_periot @ 8c2ee43)
+B=/sys/class/qcom-battery
+S=/data/adb/bypass_charging
+P=/sys/class/power_supply
+mkdir -p "$S"
+[ -f "$S/config" ] || printf 'AUTO=0\nHIGH=80\nLOW=75\nDELAY=1\n' > "$S/config"
+. "$S/config"
+DELAY=${DELAY:-1}
+
+w() { echo "$2" > "$B/$1" 2>/dev/null || { echo "FAILED: $1=$2"; return 1; }; sleep "$DELAY"; }
+native() { [ -w "$B/bypass_charging_enable" ]; }
+is_on()  { [ -f "$S/on" ]; }
+
+wait_native() {
+  i=0
+  while [ $i -lt 15 ]; do
+    case "$(cat $B/bypass_charging_enable)" in *pending*) sleep 1; i=$((i+1));; *) return;; esac
+  done
+}
+
+do_on() {
+  is_on && { echo "already on"; return 0; }
+  if native; then
+    echo 1 > $B/bypass_charging_enable || return 1
+    wait_native
+  else
+    cat $B/fastcharge_enable > "$S/saved_fc" 2>/dev/null
+    w fastcharge_enable 0 || return 1
+    w smart_chg 9 || return 1
+    w smart_chg 3 || return 1
+  fi
+  touch "$S/on"; echo "bypass ON"
+}
+
+do_off() {
+  if native; then
+    echo 0 > $B/bypass_charging_enable; wait_native
+  else
+    w smart_chg 2
+    w smart_chg 8
+    w fastcharge_enable "$(cat $S/saved_fc 2>/dev/null || echo 0)"
+  fi
+  rm -f "$S/on"; echo "bypass OFF"
+}
+
+json() {
+  sc=$(cat $B/smart_chg 2>/dev/null | tr -d '\n\r"\\')
+  echo "{\"on\":$(is_on && echo 1 || echo 0),\"native\":$(native && echo 1 || echo 0),\"smart_chg\":\"$sc\",\"cap\":$(cat $P/battery/capacity),\"status\":\"$(cat $P/battery/status)\",\"current\":$(cat $P/battery/current_now),\"usb\":$(cat $P/usb/online 2>/dev/null || echo 0),\"auto\":${AUTO:-0},\"high\":${HIGH:-80},\"low\":${LOW:-75},\"delay\":$DELAY}"
+}
+
+case "$1" in
+  on) do_on ;;
+  off) do_off ;;
+  toggle) if is_on; then do_off; else do_on; fi ;;
+  json) json ;;
+  set)
+    case "$2" in AUTO|HIGH|LOW|DELAY) ;; *) echo "bad key"; exit 1;; esac
+    case "$3" in ''|*[!0-9]*) echo "bad value"; exit 1;; esac
+    sed -i "/^$2=/d" "$S/config"; echo "$2=$3" >> "$S/config"; echo "$2=$3" ;;
+  status|"")
+    echo "module state : $(is_on && echo on || echo off)"
+    native && echo "native node  : $(cat $B/bypass_charging_enable)"
+    echo "smart_chg    : $(cat $B/smart_chg 2>/dev/null)"
+    echo "fastcharge   : $(cat $B/fastcharge_enable 2>/dev/null)"
+    echo "battery      : $(cat $P/battery/capacity)% $(cat $P/battery/status) $(cat $P/battery/current_now)uA" ;;
+  *) echo "usage: bypass on|off|toggle|status|json|set KEY NUM" ;;
+esac

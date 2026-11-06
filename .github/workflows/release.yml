@@ -1,0 +1,19 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package module
+        run: |
+          zip -r "bypass-charging-peridot-${GITHUB_REF_NAME}.zip" . \
+            -x '.git/*' '.github/*' '.gitignore' 'CHANGELOG.md' '*.zip'
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: bypass-charging-peridot-*.zip
+          generate_release_notes: true
